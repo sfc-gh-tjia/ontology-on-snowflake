@@ -1,0 +1,26 @@
+spec:
+  containers:
+  - name: mcp-server
+    image: XXXXXX.registry.snowflakecomputing.com/ontology_db/soccer_kg/soccer_graph_analytics_repo/soccer_mcp_server:latest  # Replace XXXXXX with your Snowflake account identifier
+    command:
+      - python
+      - soccer_mcp_server.py
+    env:
+      MCP_SERVER_NAME: "soccer-graph-analytics"
+      MCP_SERVER_VERSION: "1.0.0"
+      PRELOAD_ON_STARTUP: "true"
+      MCP_TRANSPORT: "http"
+    resources:
+      requests:
+        memory: 2Gi
+        cpu: 1
+      limits:
+        memory: 4Gi
+        cpu: 2
+    readinessProbe:
+      port: 5000
+      path: /health
+  endpoints:
+  - name: graph-api
+    port: 5000
+    public: false
