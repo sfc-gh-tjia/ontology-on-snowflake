@@ -49,7 +49,7 @@ FROM (
         UPPER($1:ROLE::STRING),  -- PLAYER or COACH
         $1:NAME::STRING,
         CASE 
-            WHEN $1:ROLE::STRING = 'Player' THEN
+            WHEN UPPER($1:ROLE::STRING) = 'PLAYER' THEN
                 OBJECT_CONSTRUCT(
                     'position', $1:POSITION::STRING,
                     'nationality', $1:NATIONALITY::STRING,

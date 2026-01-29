@@ -49,66 +49,92 @@ tables:
       database: ONTOLOGY_DB
       schema: SOCCER_KG
       table: ONT_OBJECT_SOURCE
-    description: "Maps object types to their source datasets/views"
+    description: "Maps object types to their source tables with column mappings"
     dimensions:
       - name: ONTOLOGY_NAME
         expr: ONTOLOGY_NAME
         data_type: STRING
         description: Ontology name
-      - name: CLASS_NAME
-        expr: CLASS_NAME
+      - name: OBJ_TYPE
+        expr: OBJ_TYPE
         data_type: STRING
         description: Object type name (e.g., Player, Coach, Club)
-      - name: SOURCE_TYPE
-        expr: SOURCE_TYPE
+        synonyms:
+          - class_name
+          - object_type
+          - entity_type
+      - name: SOURCE_TABLE
+        expr: SOURCE_TABLE
         data_type: STRING
-        description: Type of source (DATASET, VIEW, MODEL)
-        sample_values:
-          - VIEW
-          - DATASET
-          - MODEL
-      - name: SOURCE_REF
-        expr: SOURCE_REF
+        description: Source table name (e.g., KG_NODE)
+        synonyms:
+          - source
+          - table_name
+      - name: FILTER_SQL
+        expr: FILTER_SQL
         data_type: STRING
-        description: Full reference to source (e.g., DB.SCHEMA.TABLE)
+        description: SQL filter expression (e.g., NODE_TYPE = 'PLAYER')
+        synonyms:
+          - filter
+          - where_clause
+      - name: MAPPING
+        expr: MAPPING
+        data_type: VARIANT
+        description: JSON mapping of source columns to properties
+        synonyms:
+          - column_mapping
+          - field_mapping
     primary_key:
       columns:
         - ONTOLOGY_NAME
-        - CLASS_NAME
-        - SOURCE_REF
+        - OBJ_TYPE
+        - SOURCE_TABLE
 
   - name: ONT_LINK_SOURCE
     base_table:
       database: ONTOLOGY_DB
       schema: SOCCER_KG
       table: ONT_LINK_SOURCE
-    description: "Maps link types to their source edge tables"
+    description: "Maps link types to their source tables with column mappings"
     dimensions:
       - name: ONTOLOGY_NAME
         expr: ONTOLOGY_NAME
         data_type: STRING
         description: Ontology name
-      - name: REL_NAME
-        expr: REL_NAME
+      - name: LINK_TYPE
+        expr: LINK_TYPE
         data_type: STRING
-        description: Relationship name (e.g., PLAYS_FOR, COACHES)
-      - name: SOURCE_TYPE
-        expr: SOURCE_TYPE
+        description: Link type name (e.g., PLAYS_FOR, COACHES)
+        synonyms:
+          - rel_name
+          - relationship_type
+          - edge_type
+      - name: SOURCE_TABLE
+        expr: SOURCE_TABLE
         data_type: STRING
-        description: Type of source (EDGE_TABLE, PIPELINE)
-        sample_values:
-          - VIEW
-          - EDGE_TABLE
-          - PIPELINE
-      - name: SOURCE_REF
-        expr: SOURCE_REF
+        description: Source table name (e.g., KG_EDGE)
+        synonyms:
+          - source
+          - table_name
+      - name: FILTER_SQL
+        expr: FILTER_SQL
         data_type: STRING
-        description: Full reference to source
+        description: SQL filter expression (e.g., EDGE_TYPE = 'PLAYS_FOR')
+        synonyms:
+          - filter
+          - where_clause
+      - name: MAPPING
+        expr: MAPPING
+        data_type: VARIANT
+        description: JSON mapping of source columns to properties
+        synonyms:
+          - column_mapping
+          - field_mapping
     primary_key:
       columns:
         - ONTOLOGY_NAME
-        - REL_NAME
-        - SOURCE_REF
+        - LINK_TYPE
+        - SOURCE_TABLE
 
   # =====================================================
   # OBJECT TYPE DEFINITIONS
@@ -568,32 +594,45 @@ tables:
       database: ONTOLOGY_DB
       schema: SOCCER_KG
       table: OBJ_VIEW_DEF
-    description: "Object view definitions for UI presentation"
+    description: "Object view definitions for UI presentation and governance"
     dimensions:
+      - name: OBJ_TYPE
+        expr: OBJ_TYPE
+        data_type: STRING
+        description: Object type (e.g., Player, Coach, Club)
+        synonyms:
+          - class_name
+          - object_type
+          - entity_type
       - name: VIEW_NAME
         expr: VIEW_NAME
         data_type: STRING
-        description: View name (e.g., PlayerProfile, PlayerCard)
-      - name: CLASS_NAME
-        expr: CLASS_NAME
+        description: Logical view name (e.g., V_PLAYER)
+        synonyms:
+          - view_identifier
+          - view_id
+      - name: CREATED_BY
+        expr: CREATED_BY
         data_type: STRING
-        description: Object type this view is for
+        description: Creator of the view definition
+        synonyms:
+          - author
+          - owner
+      - name: DESCRIPTION
+        expr: DESCRIPTION
+        data_type: STRING
+        description: Description of the view
+      - name: DISPLAY_COLS
+        expr: DISPLAY_COLS
+        data_type: VARIANT
+        description: Array of columns to display
+        synonyms:
+          - columns
+          - fields
       - name: VERSION
         expr: VERSION
         data_type: STRING
         description: View version
-      - name: VIEW_KIND
-        expr: VIEW_KIND
-        data_type: STRING
-        description: View type (FULL, PANEL, LIST)
-        sample_values:
-          - FULL
-          - PANEL
-          - LIST
-      - name: SQL_REF
-        expr: SQL_REF
-        data_type: STRING
-        description: SQL view reference
       - name: STATUS
         expr: STATUS
         data_type: STRING
@@ -601,11 +640,15 @@ tables:
         sample_values:
           - ACTIVE
           - DEPRECATED
+    time_dimensions:
+      - name: TS_CREATED
+        expr: TS_CREATED
+        data_type: TIMESTAMP
+        description: When view definition was created
     primary_key:
       columns:
-        - CLASS_NAME
+        - OBJ_TYPE
         - VIEW_NAME
-        - VERSION
 
   - name: OBJ_VIEW_FIELD
     base_table:
@@ -614,10 +657,13 @@ tables:
       table: OBJ_VIEW_FIELD
     description: "Field configuration for object views"
     dimensions:
-      - name: CLASS_NAME
-        expr: CLASS_NAME
+      - name: OBJ_TYPE
+        expr: OBJ_TYPE
         data_type: STRING
         description: Object type
+        synonyms:
+          - class_name
+          - object_type
       - name: VIEW_NAME
         expr: VIEW_NAME
         data_type: STRING
@@ -626,10 +672,6 @@ tables:
         expr: VERSION
         data_type: STRING
         description: View version
-      - name: FIELD_ORDER
-        expr: FIELD_ORDER
-        data_type: NUMBER
-        description: Display order of field
       - name: PROP_NAME
         expr: PROP_NAME
         data_type: STRING
@@ -638,9 +680,14 @@ tables:
         expr: RENDER_HINT
         data_type: STRING
         description: UI rendering hint (badge, link, date, number, etc.)
+    facts:
+      - name: FIELD_ORDER
+        expr: FIELD_ORDER
+        data_type: NUMBER
+        description: Display order of field
     primary_key:
       columns:
-        - CLASS_NAME
+        - OBJ_TYPE
         - VIEW_NAME
         - VERSION
         - PROP_NAME
@@ -992,6 +1039,148 @@ relationships:
         right_column: RULE_ID
     join_type: left_outer
     relationship_type: many_to_one
+
+# =====================================================
+# METRICS - Governance-level aggregations
+# =====================================================
+metrics:
+  - name: class_count
+    expr: COUNT(DISTINCT CLASS_NAME)
+    data_type: NUMBER
+    description: "Number of object types/classes in the ontology"
+    synonyms:
+      - number_of_classes
+      - object_type_count
+
+  - name: property_count
+    expr: COUNT(DISTINCT PROP_NAME)
+    data_type: NUMBER
+    description: "Number of properties defined"
+    synonyms:
+      - number_of_properties
+      - field_count
+
+  - name: relation_count
+    expr: COUNT(DISTINCT REL_NAME)
+    data_type: NUMBER
+    description: "Number of relationship types"
+    synonyms:
+      - link_type_count
+      - edge_type_count
+
+  - name: active_rules_count
+    expr: "COUNT(CASE WHEN IS_ENABLED = TRUE THEN 1 END)"
+    data_type: NUMBER
+    description: "Count of enabled inference rules"
+    synonyms:
+      - enabled_rules
+      - active_inference_count
+
+  - name: violation_count
+    expr: COUNT(*)
+    data_type: NUMBER
+    description: "Number of constraint violations"
+    synonyms:
+      - error_count
+      - issue_count
+
+  - name: permission_count
+    expr: COUNT(DISTINCT SUBJECT_NAME || ONT_ROLE_NAME || PRIVILEGE)
+    data_type: NUMBER
+    description: "Number of permission grants"
+    synonyms:
+      - grant_count
+      - access_count
+
+  - name: action_count
+    expr: COUNT(DISTINCT ACTION_TYPE_ID)
+    data_type: NUMBER
+    description: "Number of available actions"
+    synonyms:
+      - operation_count
+      - capability_count
+
+  - name: function_count
+    expr: COUNT(DISTINCT FUNCTION_NAME)
+    data_type: NUMBER
+    description: "Number of analytical functions"
+    synonyms:
+      - udf_count
+      - procedure_count
+
+# =====================================================
+# FILTERS - Governance-level filters
+# =====================================================
+filters:
+  - name: active_only
+    expr: "STATUS = 'ACTIVE'"
+    description: "Filter for active elements (not deprecated)"
+    synonyms:
+      - current_only
+      - not_deprecated
+
+  - name: enabled_rules
+    expr: "IS_ENABLED = TRUE"
+    description: "Filter for enabled inference rules"
+    synonyms:
+      - active_rules
+      - working_rules
+
+  - name: soccer_ontology
+    expr: "ONTOLOGY_NAME = 'SOCCER_V1'"
+    description: "Filter for soccer ontology"
+    synonyms:
+      - soccer_v1
+      - football_ontology
+
+  - name: abstract_classes
+    expr: "IS_ABSTRACT = TRUE"
+    description: "Filter for abstract classes only"
+    synonyms:
+      - abstract_only
+      - parent_classes
+
+  - name: concrete_classes
+    expr: "IS_ABSTRACT = FALSE"
+    description: "Filter for concrete (instantiable) classes"
+    synonyms:
+      - concrete_only
+      - leaf_classes
+
+  - name: required_properties
+    expr: "IS_REQUIRED = TRUE"
+    description: "Filter for mandatory properties"
+    synonyms:
+      - mandatory_only
+      - required_fields
+
+  - name: admin_permissions
+    expr: "PRIVILEGE = 'ADMIN'"
+    description: "Filter for admin-level permissions"
+    synonyms:
+      - admin_access
+      - full_control
+
+  - name: read_permissions
+    expr: "PRIVILEGE = 'READ'"
+    description: "Filter for read-only permissions"
+    synonyms:
+      - read_access
+      - view_only
+
+  - name: write_permissions
+    expr: "PRIVILEGE = 'WRITE'"
+    description: "Filter for write permissions"
+    synonyms:
+      - write_access
+      - modify_access
+
+  - name: enabled_actions
+    expr: "IS_ENABLED = TRUE"
+    description: "Filter for enabled actions"
+    synonyms:
+      - available_actions
+      - active_actions
 
 verified_queries:
   # =====================================================
@@ -1483,4 +1672,46 @@ custom_instructions: |-
   - Data quality dashboards: Monitor constraint violations
   - Developer documentation: Discover available actions and functions
   - Ontology evolution: Track changes to structure over time
+
+module_custom_instructions:
+  sql_generation: |-
+    Governance SQL Generation Rules:
+    
+    1. TABLE HIERARCHY FOR STRUCTURE QUERIES:
+       - Start with ONT_ONTOLOGY for overall context
+       - Join ONT_CLASS for object types
+       - Join ONT_PROPERTY for class attributes
+       - Join ONT_RELATION_DEF for relationship types
+    
+    2. TABLE HIERARCHY FOR ACCESS QUERIES:
+       - Start with ONT_ROLE for role definitions
+       - Join ONT_PERMISSION for access grants
+       - Filter by PRIVILEGE (READ, WRITE, EXECUTE, ADMIN)
+    
+    3. TABLE HIERARCHY FOR QUALITY QUERIES:
+       - ONT_CONSTRAINT_VIOLATION for current issues
+       - ONT_RULE for inference rule status
+       - REL_EDGE_INFERRED for derived data
+    
+    4. COMMON FILTER PATTERNS:
+       - Use pre-defined filters: active_only, enabled_rules, soccer_ontology
+       - Always filter by ONTOLOGY_NAME = 'SOCCER_V1' for soccer queries
+       - Check STATUS = 'ACTIVE' for non-deprecated elements
+       - Check IS_ENABLED = TRUE for active rules/actions
+    
+    5. AGGREGATION PATTERNS:
+       - Use pre-defined metrics: class_count, property_count, violation_count
+       - GROUP BY CLASS_NAME for per-class summaries
+       - GROUP BY ONT_ROLE_NAME for per-role permission summaries
+  
+  question_categorization: |-
+    Treat the following as UNAMBIGUOUS_SQL for governance queries:
+    - "What classes/types exist?" → ONT_CLASS
+    - "What properties does X have?" → ONT_PROPERTY with CLASS_NAME filter
+    - "What relationships exist?" → ONT_RELATION_DEF
+    - "Who has access to X?" → ONT_PERMISSION
+    - "What can [role] do?" → ONT_PERMISSION with role filter
+    - "Are there data quality issues?" → ONT_CONSTRAINT_VIOLATION
+    - "What actions are available?" → ACT_TYPE
+    - "What functions exist?" → ONT_FUNCTION
 

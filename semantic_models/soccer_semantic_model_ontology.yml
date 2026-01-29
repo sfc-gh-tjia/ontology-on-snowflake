@@ -314,12 +314,12 @@ tables:
       database: ONTOLOGY_DB
       schema: SOCCER_KG
       table: REL_RESOLVED
-    description: "Unified view of explicit and inferred relationships - includes inverse relationships like clubs having players"
+    description: "Unified view of all relationships with resolved type information"
     dimensions:
       - name: REL_NAME
         expr: REL_NAME
         data_type: STRING
-        description: Relationship name (e.g., PLAYS_FOR, HAS_PLAYER, COACHES, HAS_COACH)
+        description: Relationship name (e.g., PLAYS_FOR, COACHES, PLAYED_IN, HOME_TEAM, AWAY_TEAM)
         synonyms:
           - relationship_type
           - edge_type
@@ -330,6 +330,17 @@ tables:
         synonyms:
           - source_id
           - from_id
+      - name: SRC_CLASS
+        expr: SRC_CLASS
+        data_type: STRING
+        description: Source node class type
+        sample_values:
+          - Player
+          - Coach
+          - Club
+        synonyms:
+          - source_type
+          - source_class
       - name: DST_ID
         expr: DST_ID
         data_type: STRING
@@ -337,13 +348,24 @@ tables:
         synonyms:
           - target_id
           - to_id
-      - name: SOURCE
-        expr: SOURCE
+      - name: DST_CLASS
+        expr: DST_CLASS
         data_type: STRING
-        description: Source of relationship (EXPLICIT for direct, INVERSE for inferred inverse relationships)
+        description: Destination node class type
         sample_values:
-          - EXPLICIT
-          - INVERSE
+          - Club
+          - Match
+        synonyms:
+          - target_type
+          - destination_class
+      - name: PROPS
+        expr: PROPS
+        data_type: VARIANT
+        description: Additional relationship properties
+        synonyms:
+          - properties
+          - attributes
+          - metadata
     time_dimensions:
       - name: EFFECTIVE_START
         expr: EFFECTIVE_START
@@ -412,24 +434,13 @@ tables:
         expr: VIA_REL
         data_type: STRING
         sample_values:
-          - plays_for
-          - coaches
+          - PLAYS_FOR
+          - COACHES
         description: Concrete relationship type
         synonyms:
           - relationship_type
           - relation_name
           - concrete_relation
-      - name: SRC_VIEW
-        expr: SRC_VIEW
-        data_type: STRING
-        sample_values:
-          - V_PLAYS_FOR
-          - V_COACHES
-        description: Source view from which this relationship was materialized
-        synonyms:
-          - source
-          - origin_view
-          - source_table
       - name: PROPS
         expr: PROPS
         data_type: VARIANT
@@ -518,26 +529,12 @@ tables:
         expr: VIA_REL
         data_type: STRING
         sample_values:
-          - played_in
-          - home_team
-          - away_team
-        description: Concrete relationship type
+          - PLAYED_IN
+        description: Concrete relationship type (Note: HOME_TEAM and AWAY_TEAM are in ONT_AFFILIATED_WITH)
         synonyms:
           - relationship_type
           - participation_type
           - concrete_relation
-      - name: SRC_VIEW
-        expr: SRC_VIEW
-        data_type: STRING
-        sample_values:
-          - V_PLAYED_IN
-          - V_HOME_TEAM
-          - V_AWAY_TEAM
-        description: Source view from which this relationship was materialized
-        synonyms:
-          - source
-          - origin_view
-          - source_table
       - name: PROPS
         expr: PROPS
         data_type: VARIANT
@@ -624,24 +621,13 @@ tables:
         expr: VIA_REL
         data_type: STRING
         sample_values:
-          - plays_for
-          - coaches
+          - HOME_TEAM
+          - AWAY_TEAM
         description: Concrete relationship type
         synonyms:
           - relationship_type
           - affiliation_type
           - concrete_relation
-      - name: SRC_VIEW
-        expr: SRC_VIEW
-        data_type: STRING
-        sample_values:
-          - V_PLAYS_FOR
-          - V_COACHES
-        description: Source view from which this relationship was materialized
-        synonyms:
-          - source
-          - origin_view
-          - source_table
       - name: PROPS
         expr: PROPS
         data_type: VARIANT
@@ -782,6 +768,103 @@ relationships:
         right_column: MATCH_ID
     join_type: left_outer
     relationship_type: one_to_one
+
+# =====================================================
+# METRICS - Ontology-level aggregations
+# =====================================================
+metrics:
+  - name: entity_count
+    expr: COUNT(DISTINCT ID)
+    data_type: NUMBER
+    description: "Count of entities across abstract classes"
+    synonyms:
+      - number_of_entities
+      - total_entities
+
+  - name: person_count
+    expr: COUNT(DISTINCT SUBJECT_ID)
+    data_type: NUMBER
+    description: "Count of persons in relationships"
+    synonyms:
+      - number_of_people
+      - personnel_count
+
+  - name: relationship_count
+    expr: COUNT(*)
+    data_type: NUMBER
+    description: "Count of relationships"
+    synonyms:
+      - edge_count
+      - connection_count
+
+  - name: active_relationship_count
+    expr: "COUNT(CASE WHEN EFFECTIVE_END IS NULL OR EFFECTIVE_END >= CURRENT_DATE() THEN 1 END)"
+    data_type: NUMBER
+    description: "Count of currently active relationships"
+    synonyms:
+      - current_relationships
+      - active_edges
+
+  - name: avg_relationship_duration_days
+    expr: "AVG(DATEDIFF(day, EFFECTIVE_START, COALESCE(EFFECTIVE_END, CURRENT_DATE())))"
+    data_type: NUMBER
+    description: "Average duration of relationships in days"
+    synonyms:
+      - mean_tenure
+      - average_duration
+
+# =====================================================
+# FILTERS - Ontology-level filters for common patterns
+# =====================================================
+filters:
+  - name: players_only
+    expr: "SUBTYPE = 'Player'"
+    description: "Filter for Player subtype in Person class"
+    synonyms:
+      - only_players
+      - player_filter
+
+  - name: coaches_only
+    expr: "SUBTYPE = 'Coach'"
+    description: "Filter for Coach subtype in Person class"
+    synonyms:
+      - only_coaches
+      - coach_filter
+
+  - name: clubs_only
+    expr: "SUBTYPE = 'Club'"
+    description: "Filter for Club subtype in Organization class"
+    synonyms:
+      - only_clubs
+      - club_filter
+
+  - name: matches_only
+    expr: "SUBTYPE = 'Match'"
+    description: "Filter for Match subtype in Event class"
+    synonyms:
+      - only_matches
+      - match_filter
+
+  - name: active_relationships
+    expr: "EFFECTIVE_END IS NULL OR EFFECTIVE_END >= CURRENT_DATE()"
+    description: "Filter for currently active relationships"
+    synonyms:
+      - current_only
+      - active_only
+
+  - name: plays_for_relationships
+    expr: "VIA_REL = 'PLAYS_FOR'"
+    description: "Filter for PLAYS_FOR concrete relationships"
+    synonyms:
+      - player_contracts
+      - playing_relationships
+
+  - name: coaches_relationships
+    expr: "VIA_REL = 'COACHES'"
+    description: "Filter for COACHES concrete relationships"
+    synonyms:
+      - coaching_contracts
+      - coaching_relationships
 
 verified_queries:
   # =====================================================
@@ -1301,3 +1384,40 @@ custom_instructions: |-
   - Use GROUP BY SUBTYPE or VIA_REL for cross-type comparisons and analytics
   - Use REL_RESOLVED for bidirectional relationship queries (especially useful for "who does X have" questions)
   - For match statistics, use V_PLAYED_IN with joins to V_PLAYER and V_MATCH
+
+module_custom_instructions:
+  sql_generation: |-
+    Ontology SQL Generation Rules:
+    
+    1. ABSTRACT CLASS VIEWS (ONT_*):
+       - ONT_PERSON: Use for queries about "people", "personnel", "individuals" (unions Player + Coach)
+       - ONT_ORGANIZATION: Use for queries about "organizations" (unions Club)
+       - ONT_EVENT: Use for queries about "events" (unions Match)
+    
+    2. ABSTRACT RELATIONSHIP VIEWS:
+       - ONT_WORKS_FOR: Person works for Organization (VIA_REL: PLAYS_FOR or COACHES)
+       - ONT_PARTICIPATES_IN: Entity participates in Event (VIA_REL: PLAYED_IN only)
+       - ONT_AFFILIATED_WITH: Organization affiliated with Event (VIA_REL: HOME_TEAM or AWAY_TEAM)
+    
+    3. ATTRIBUTE ENRICHMENT (MANDATORY):
+       - Ontology views only have: ID, SUBTYPE, SRC_VIEW
+       - For attributes (NAME, NATIONALITY, etc.): JOIN to concrete views
+       - Use CASE WHEN SUBTYPE = 'X' pattern for polymorphic attribute access
+    
+    4. FILTERING PATTERNS:
+       - Use pre-defined filters: players_only, coaches_only, active_relationships
+       - Filter by SUBTYPE for concrete type within abstract class
+       - Filter by VIA_REL for concrete relationship type
+    
+    5. AGGREGATION PATTERNS:
+       - Use pre-defined metrics: entity_count, relationship_count, active_relationship_count
+       - GROUP BY SUBTYPE for cross-type summaries
+       - GROUP BY VIA_REL for relationship type breakdowns
+  
+  question_categorization: |-
+    Treat the following as UNAMBIGUOUS_SQL for ontology queries:
+    - "All people/personnel at [club]" → ONT_PERSON + ONT_WORKS_FOR
+    - "How many [role type] work in [league]" → ONT_WORKS_FOR with SUBTYPE grouping
+    - "International workforce/diversity" → ONT_PERSON with nationality analysis
+    - "Employment duration/tenure" → ONT_WORKS_FOR with temporal calculations
+    - Cross-type questions spanning players AND coaches → Use abstract views

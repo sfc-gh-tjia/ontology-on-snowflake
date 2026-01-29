@@ -909,6 +909,129 @@ relationships:
     join_type: left_outer
     relationship_type: many_to_one
 
+# =====================================================
+# METRICS - Pre-defined aggregations for Cortex Analyst
+# =====================================================
+metrics:
+  - name: total_goals
+    expr: SUM(GOALS_SCORED)
+    data_type: NUMBER
+    description: "Total goals scored by players across matches"
+    synonyms:
+      - goals_total
+      - sum_of_goals
+      - combined_goals
+
+  - name: total_assists
+    expr: SUM(ASSISTS)
+    data_type: NUMBER
+    description: "Total assists made by players across matches"
+    synonyms:
+      - assists_total
+      - sum_of_assists
+
+  - name: avg_minutes_played
+    expr: AVG(MINUTES_PLAYED)
+    data_type: NUMBER
+    description: "Average minutes played per match appearance"
+    synonyms:
+      - average_playing_time
+      - mean_minutes
+
+  - name: player_count
+    expr: COUNT(DISTINCT PLAYER_ID)
+    data_type: NUMBER
+    description: "Number of unique players"
+    synonyms:
+      - number_of_players
+      - distinct_players
+
+  - name: match_count
+    expr: COUNT(DISTINCT MATCH_ID)
+    data_type: NUMBER
+    description: "Number of unique matches"
+    synonyms:
+      - number_of_matches
+      - total_matches
+
+  - name: total_contract_value
+    expr: SUM(CONTRACT_VALUE)
+    data_type: NUMBER
+    description: "Total contract value in currency"
+    synonyms:
+      - combined_contract_value
+      - sum_of_contracts
+
+  - name: avg_contract_value
+    expr: AVG(CONTRACT_VALUE)
+    data_type: NUMBER
+    description: "Average contract value"
+    synonyms:
+      - mean_contract_value
+      - average_deal_value
+
+  - name: total_yellow_cards
+    expr: SUM(YELLOW_CARDS)
+    data_type: NUMBER
+    description: "Total yellow cards received"
+    synonyms:
+      - yellows_total
+      - cautions_total
+
+  - name: total_red_cards
+    expr: SUM(RED_CARDS)
+    data_type: NUMBER
+    description: "Total red cards received"
+    synonyms:
+      - reds_total
+      - dismissals_total
+
+# =====================================================
+# FILTERS - Named WHERE clauses for common patterns
+# =====================================================
+filters:
+  - name: active_contracts
+    expr: "EFFECTIVE_END IS NULL OR EFFECTIVE_END >= CURRENT_DATE()"
+    description: "Filter for currently active contracts (not expired)"
+    synonyms:
+      - current_contracts
+      - valid_contracts
+
+  - name: premier_league_clubs
+    expr: "LEAGUE = 'Premier League'"
+    description: "Filter for English Premier League clubs"
+    synonyms:
+      - english_top_flight
+      - epl_clubs
+
+  - name: la_liga_clubs
+    expr: "LEAGUE = 'La Liga'"
+    description: "Filter for Spanish La Liga clubs"
+    synonyms:
+      - spanish_league
+      - primera_division
+
+  - name: champions_league_matches
+    expr: "COMPETITION = 'Champions League'"
+    description: "Filter for UEFA Champions League matches"
+    synonyms:
+      - ucl_matches
+      - european_cup
+
+  - name: goal_scorers
+    expr: "GOALS_SCORED > 0"
+    description: "Filter for players who scored at least one goal"
+    synonyms:
+      - players_with_goals
+      - scorers
+
+  - name: current_year_matches
+    expr: "YEAR(EVENT_DATE) = YEAR(CURRENT_DATE())"
+    description: "Filter for matches in the current calendar year"
+    synonyms:
+      - this_year_matches
+      - recent_matches
+
 verified_queries:
   # LEVEL 1: Basic Queries (Cortex Analyst - SQL-based)
   - name: current_squad_analysis_v2
@@ -1567,12 +1690,51 @@ verified_queries:
     verified_at: 1747672000
 
 custom_instructions: |-
-  When asked about 'players', focus on active players with current contracts (EFFECTIVE_END >= CURRENT_DATE or NULL).
-  If a time frame is not specified, include all historical data unless specifically asking for current/active information.
-  For club analysis, always include country and stadium information when available.
-  When analyzing matches, include both home and away team information for context.
-  For player performance, include goals, assists, and disciplinary records from match appearances.
-  Focus on won matches and successful outcomes unless specifically asked about losses or draws.
-  When analyzing contracts, prioritize current/active contracts unless historical analysis is requested.
-  Use the convenience views (V_PLAYER, V_CLUB, V_MATCH, V_PLAYS_FOR, V_COACHES, V_PLAYED_IN, V_HOME_TEAM, V_AWAY_TEAM) for all queries.
-  Leverage the node-edge architecture through the views for complex graph traversal queries and relationship analysis.
+  This is a Knowledge Graph semantic model with node-edge architecture for soccer data.
+  
+  ENTITY TABLES (nodes):
+  - V_PLAYER: Player entities with NODE_ID as primary key
+  - V_COACH: Coach entities with NODE_ID as primary key
+  - V_CLUB: Club entities with NODE_ID as primary key
+  - V_MATCH: Match event entities with NODE_ID as primary key
+  
+  RELATIONSHIP TABLES (edges):
+  - V_PLAYS_FOR: Player-to-Club contracts (PLAYER_ID -> CLUB_ID)
+  - V_COACHES: Coach-to-Club contracts (COACH_ID -> CLUB_ID)
+  - V_PLAYED_IN: Player match appearances (PLAYER_ID -> MATCH_ID)
+  - V_HOME_TEAM: Club as home team in match (CLUB_ID -> MATCH_ID)
+  - V_AWAY_TEAM: Club as away team in match (CLUB_ID -> MATCH_ID)
+  
+  TEMPORAL FILTERING:
+  - For "current" or "active" queries: EFFECTIVE_END IS NULL OR EFFECTIVE_END >= CURRENT_DATE()
+  - Include all historical data unless specifically asking for current/active information
+  
+  JOIN PATTERNS:
+  - Always join entities through relationship tables, not directly
+  - Example: Player to Club via V_PLAYS_FOR, not direct join
+  - For matches with teams: JOIN V_HOME_TEAM and V_AWAY_TEAM separately
+  
+  QUERY BEST PRACTICES:
+  - Use NODE_ID columns to join entity tables with relationship tables
+  - For player performance: join V_PLAYER -> V_PLAYED_IN -> V_MATCH
+  - For contract details: join entity -> relationship view (V_PLAYS_FOR or V_COACHES)
+  - Focus on won matches and successful outcomes unless specifically asked about losses
+  - When analyzing contracts, prioritize current/active contracts unless historical analysis is requested
+
+module_custom_instructions:
+  sql_generation: |-
+    Knowledge Graph SQL Generation Rules:
+    1. Entity tables use NODE_ID as primary key
+    2. Relationship tables use SRC_ID (renamed to PLAYER_ID, COACH_ID, CLUB_ID) and DST_ID (renamed to CLUB_ID, MATCH_ID)
+    3. For temporal queries, always check EFFECTIVE_START and EFFECTIVE_END
+    4. Use the pre-defined filters (active_contracts, premier_league_clubs, etc.) when applicable
+    5. Use the pre-defined metrics (total_goals, total_assists, etc.) for aggregations
+    6. For head-to-head analysis: join V_MATCH with both V_HOME_TEAM and V_AWAY_TEAM
+  
+  question_categorization: |-
+    Treat the following as UNAMBIGUOUS_SQL:
+    - Squad/roster queries for specific clubs
+    - Player statistics and performance queries
+    - Match result queries with specific teams or competitions
+    - Contract/transfer history queries
+    - Head-to-head match analysis between clubs
