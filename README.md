@@ -4,6 +4,14 @@
 
 This repository contains the complete implementation of **Ontology on Snowflake** - a Snowflake-native ontology platform that transforms Snowflake from a system that manages data into a platform that **models real-world business concepts and processes**.
 
+## Blog Post Series
+
+This implementation is accompanied by a three-part blog series on Medium:
+
+1. **[Part 1: Overview and Data Model](https://medium.com/snowflake/ontology-on-snowflake-part-1-overview-and-data-model-9e8eeaac7363)** - Introduces the knowledge graph foundation and ontology metadata layer
+2. **[Part 2: Semantic Models](https://medium.com/snowflake/ontology-on-snowflake-part-2-semantic-models-9aa0fa9b9312)** - Covers the three specialized Cortex Analyst semantic models
+3. **[Part 3: AI-Powered Intelligence](https://medium.com/snowflake/ontology-on-snowflake-part-3-ai-powered-intelligence-bbace87c6be1)** - Details Cortex Agent orchestration and graph analytics
+
 ## Solution Overview
 
 Ontology on Snowflake is delivered as an integrated, end-to-end capability across three parts (aligned with the blog post series):
